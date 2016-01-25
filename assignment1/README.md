@@ -66,10 +66,10 @@ Approach that I followed:
 * Testing of the server:
  - I have included the test file basic_test.go on which I have tested my file server and it ran successfully PASS ok
  - I have tested it using the command go test -race
- - I tested the server for its concurrency by creating 3 clients, made them to write, read ,cas and delete the same file 
+ - I tested the server for its concurrency by creating 10 clients, made them to write, read ,cas and delete the same file 
     ~ for the write operation, the file end up with the content written by the last client
     ~ for the read operation, they read the latest version of the content
-    ~ for the cas operation, only the first client was able to execute the operation and the other twoend up with an error as ERROR_VERSION
+    ~ for the cas operation, only the first client was able to execute the operation and the other nine end up with an error as ERROR_VERSION
     ~ for the delete operation, only the first client to execute the operation, was able to delete the file, others could not.
  
  
