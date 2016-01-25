@@ -20,7 +20,7 @@ func TestTCPSimple(t *testing.T) {
 	for j:=0;j<5;j++{
 	go func(k int){
 	name := "abc.txt"
-	contents1 := "by vhajhj klkle this is new version"
+	contents1 := "01010101101010101010100101110001010 this is new version"
 	contents := "Hiii this is CS733 course here u go with assignment-1"
 	exptime := 300000
 	conn, err := net.Dial("tcp", "localhost:8080")
