@@ -64,6 +64,11 @@ Approach that I followed:
 * Testing of the server:
  - I have included the test file basic_test.go on which I have tested my file server and it ran successfully PASS ok
  - I have tested it using the command go test -race
+ - I tested the server for its concurrency by creating 3 clients, made them to write, read ,cas and delete the same file 
+    ~ for the write operation, the file end up with the content written by the last client
+    ~ for the read operation, they read the latest version of the content
+    ~ for the cas operation, only the first client was able to execute the operation and the other twoend up with an error as ERROR_VERSION
+    ~ for the delete operation, only the first client to execute the operation, was able to delete the file, others could not.
  
  
 * References that I took help from:
@@ -71,3 +76,4 @@ Approach that I followed:
  - for the string functions in go : https://golang.org/pkg/strings
  - for the struct functionality : https://gobyexample.com/structs
  - https://golang.org/src/net/http/fs.go?h=FileServer#L473     
+- http://stackoverflow.com/questions/19208725/example-for-sync-waitgroup-correct
