@@ -76,6 +76,7 @@ func commandExecutor(conn net.Conn) {
     fmt.Println("Error reading:", err.Error())
   }
   s := string(buf[:Len])
+  fmt.Println(s)
   tok := strings.SplitN(s,"\r\n",2)
   stringtok := strings.Split(tok[0]," ")
   tok[1]=strings.Trim(tok[1],"\r\n")
@@ -93,7 +94,6 @@ if stringtok[0]=="write"{
   c[i].exptime, err=strconv.ParseInt(stringtok[3], 10, 64)
   c[i].createtime = time.Now().Unix()
   }
-  
   }
    }
   }else {
@@ -108,6 +108,7 @@ if stringtok[0]=="write"{
   c[clength].createtime = time.Now().Unix()
   clength=clength+1
   }
+  fmt.Println(c[clength-1])
   err := ioutil.WriteFile(stringtok[1],[]byte(tok[1]), 0777)
   
   if err!=nil{
@@ -119,9 +120,8 @@ if stringtok[0]=="write"{
   conn.Write([]byte("ERR_CMD_ERR\r\n"))
   }
   
-  
 }else  if strings.TrimSpace(stringtok[0])=="read"{
-    
+      
    if toklen==2{
         t := strings.TrimSpace(stringtok[1])
         mutex.Lock()
@@ -137,6 +137,7 @@ if stringtok[0]=="write"{
   p := strconv.Itoa(c[i].numbytes)
   conn.Write([]byte("CONTENTS"+" "))
   conn.Write([]byte(s+" "+p+"\r\n"))
+  
 	}
   }
   
@@ -149,6 +150,7 @@ if stringtok[0]=="write"{
   
   
   }else if stringtok[0]=="cas"{
+  
  if toklen==4 || toklen ==5{
   mutex.Lock()
 if _, err := os.Stat(stringtok[1]); err == nil {
@@ -184,7 +186,6 @@ if _, err := os.Stat(stringtok[1]); err == nil {
    mutex.Unlock()
   }else{
   conn.Write([]byte("ERR_CMD_ERR\r\n"))
-  //conn.Close()
   }
   
   
@@ -235,4 +236,3 @@ mutex.Unlock()
  }
  }
  }
-
