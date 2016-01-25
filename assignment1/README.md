@@ -60,6 +60,8 @@ Approach that I followed:
  - I have even created two files statically in the structure and stored their info already.
  - Also as I have used struct as the storage structure, I have considered its length to be static as 500 files
  
+* Problem encountering :
+  - As the structure needs to always be in memory for the server to work properly, so the code will work if the file doesn't exist already, in case if it already exists I am encountering some problem that it is not able to get the file info that existed earlier
 
 * Testing of the server:
  - I have included the test file basic_test.go on which I have tested my file server and it ran successfully PASS ok
@@ -76,4 +78,5 @@ Approach that I followed:
  - for the string functions in go : https://golang.org/pkg/strings
  - for the struct functionality : https://gobyexample.com/structs
  - https://golang.org/src/net/http/fs.go?h=FileServer#L473     
-- http://stackoverflow.com/questions/19208725/example-for-sync-waitgroup-correct
+ - http://stackoverflow.com/questions/19208725/example-for-sync-waitgroup-correct
+ - https://gobyexample.com/mutexes
