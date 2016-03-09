@@ -1,0 +1,7 @@
+{"Peers":[
+      {"Id": 2,"Host": "localhost","Port": 9002},
+      {"Id": 3,"Host": "localhost","Port": 9003},
+      {"Id": 4,"Host": "localhost","Port": 9004},
+      {"Id": 1,"Host": "localhost","Port": 9001}
+    ]
+}
