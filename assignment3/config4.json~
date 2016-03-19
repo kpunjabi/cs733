@@ -1,7 +1,0 @@
-{"Peers":[
-      {"Id": 1, "Address":"localhost:8001"},
-      {"Id": 2, "Address":"localhost:8002"},
-      {"Id": 3, "Address":"localhost:8003"},
-      {"Id": 5, "Address":"localhost:8005"}
-    ]
-}
