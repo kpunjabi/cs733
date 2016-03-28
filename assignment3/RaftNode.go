@@ -279,7 +279,7 @@ func New(myid int, configuration interface{}) (nd Node, err error) {
 	raft.Terminate = make(chan int, 1)
 
 	raft.logRaft = *lg
-
+   
 	for i := 0; i < int(raft.logRaft.GetLastIndex()); i++ {
 		raft.sm.log[i].logIndex = i
 		_, raft.sm.log[i].command = raft.Get(i)
@@ -297,7 +297,10 @@ func (rn *RaftNode) processEvents() {
 	go func() {
 		for {
 			env := <-rn.servl.Inbox()
+			//fmt.Println(env)
 			ret := rn.sm.ProcessEvent(env.Msg.(Msg).Event)
+			//fmt.Println(ret)
+			time.Sleep(1 * time.Second)
 			rn.doActions(ret)
 			time.Sleep(1 * time.Second)
 		}

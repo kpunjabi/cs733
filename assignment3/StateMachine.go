@@ -100,8 +100,7 @@ func (a *AppendEntriesReqEv) AppendReqHandlerF() []interface{} {
 				ret = append(ret, Commit{index: a.LeaderCommit, data: sm.log[a.LeaderCommit].command})
 				sm.commitIndex = a.LeaderCommit
 			}
-			time.Sleep(2 * time.Second)
-
+			
 		} else {
 
 			if sm.lastLogIndex == a.PrevLogIndex && sm.lastLogTerm == a.PrevLogTerm {
@@ -164,10 +163,13 @@ func (a *AppendEntriesReqEv) AppendReqHandlerF() []interface{} {
 
 		}
 
-	}
+	}	
+	
+	time.Sleep(1 * time.Second)
+
 	//fmt.Println(ret)
 	return ret
-	return (make([]interface{}, 0))
+	
 }
 
 func (ae *AppendEntriesReqEv) AppendReqHandlerC() []interface{} {
@@ -280,10 +282,12 @@ func (ar *AppendEntriesRespEv) AppendEntriesresL() []interface{} {
 	return aresp
 }
 
+
 //AppendEv
 type AppendEv struct {
 	data1 []byte
 }
+
 
 type Commit struct {
 	index int

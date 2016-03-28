@@ -5,6 +5,7 @@ import (
 	//cl "github.com/cs733-iitb/cluster"
 	//lgd "github.com/cs733-iitb/log"
 	//"os"
+	"io/ioutil"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -13,10 +14,42 @@ import (
 
 var rafts [5]Node
 var ldr Node
-
+var max int
 //MakeRafts function creates all the nodes and initializes them
 
 func makeRafts() [5]Node {
+	var k int
+    
+    var val int
+    val=0
+    for i:=1;i<=5;i++{
+     k=rand.Intn(10)
+     if k>val{
+     	val=k
+     	max=i
+     }
+     data := strconv.Itoa(k)+" "+strconv.Itoa(0)
+     dt:=[]byte(data)
+    switch(i) {
+  
+	case 1:
+		err := ioutil.WriteFile("persdata1",dt, 0644)
+		check(err)
+	case 2:
+		err := ioutil.WriteFile("persdata2",dt, 0644)
+		check(err)
+	case 3:
+		err := ioutil.WriteFile("persdata3",dt, 0644)
+		check(err)
+	case 4:
+		err := ioutil.WriteFile("persdata4",dt, 0644)
+		check(err)
+	case 5:
+		err := ioutil.WriteFile("persdata5",dt, 0644)
+		check(err)
+
+	}
+}
 	var raftnodes [5]Node
 	var myid = 1
 
@@ -32,9 +65,7 @@ func makeRafts() [5]Node {
 	myid++
 	raftnodes[4], _ = New(myid, "config1.json")
 
-	ret := raftnodes[2].(*RaftNode).sm.ProcessEvent(TimeoutEv{rand.Intn(10)})
-	raftnodes[2].(*RaftNode).doActions(ret)
-	time.Sleep(10 * time.Second)
+	
 	return raftnodes
 
 }
@@ -80,13 +111,16 @@ func TestLeaderCreation(t *testing.T) {
 	fmt.Println("Testing Leader Creation")
 	rafts = makeRafts()
 	// array of []raft.Node
+	ret := rafts[max-1].(*RaftNode).sm.ProcessEvent(TimeoutEv{rand.Intn(10)})
+	rafts[max-1].(*RaftNode).doActions(ret)
 	time.Sleep(10 * time.Second)
-	p6 := [4]int{1, 2, 4, 5}
+	//time.Sleep(10 * time.Second)
+	p6 := [4]int{1, 2, 3, 5}
 	//	var out1 = make([]interface{}, 1)
 	//	var out2 = make([]interface{}, 1)
 
 	ldr = getLeader(rafts)
-	//sm = &StateMachine{id: 3, status: "leader", votedFor: 2, peers: p6, currentTerm: 7, lastLogIndex: 1, lastLogTerm: 7, commitIndex: 2}
+    
 
 	expectArr(t, ldr.(*RaftNode).sm.peers, p6, "Test:0")
 	expect(t, ldr.(*RaftNode).sm.status, "leader", "Test:1")
@@ -96,14 +130,15 @@ func TestLeaderCreation(t *testing.T) {
 		expect(t, strconv.Itoa(rafts[i].(*RaftNode).sm.currentTerm), strconv.Itoa(ldr.(*RaftNode).sm.currentTerm), "Test:2")
 
 	}
-
+    time.Sleep(20*time.Second)
 	for i := 0; i < 5; i++ {
-
+		//time.Sleep(2 * time.Second)
 		expect(t, strconv.Itoa(rafts[i].(*RaftNode).sm.currentLeader), strconv.Itoa(ldr.(*RaftNode).sm.id), "Test:3")
 
 	}
 
 }
+
 
 // This function tests for the append() func of the leader and checks if it data being committed over all the peer node's channel
 
@@ -112,13 +147,14 @@ func TestAppend(t *testing.T) {
 
 	ldr.(*RaftNode).Append([]byte("foo"))
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	//fmt.Println("checking")
 	for _, node := range rafts {
 		select {
 		// to avoid blocking on channel.
 		case ci := <-node.CommitChannel():
+		//	fmt.Println(string(ci.Data))
 			if ci.Err != nil {
 				t.Fatal(ci.Err)
 			}
@@ -131,6 +167,42 @@ func TestAppend(t *testing.T) {
 	}
 
 }
+
+
+func TestMultipleAppend(t *testing.T) {
+fmt.Println("Testing Multiple Append Request")
+var lastlog []byte
+var dat []byte
+ldr.(*RaftNode).Append([]byte("print1"))
+time.Sleep(10 * time.Second)
+_,dat=ldr.Get(int(ldr.(*RaftNode).logRaft.GetLastIndex()))
+fmt.Println(string(dat))
+ldr.(*RaftNode).Append([]byte("print2"))
+time.Sleep(10 * time.Second)
+_,dat=ldr.Get(int(ldr.(*RaftNode).logRaft.GetLastIndex()))
+fmt.Println(string(dat))
+ldr.(*RaftNode).Append([]byte("print3"))
+time.Sleep(10 * time.Second)
+_,dat=ldr.Get(int(ldr.(*RaftNode).logRaft.GetLastIndex()))
+fmt.Println(string(dat))
+
+
+_, lastlog = rafts[1].Get(int(rafts[1].(*RaftNode).logRaft.GetLastIndex()))
+
+if string(lastlog) != "print3" {
+t.Fatal("log mismatch"); t.Fatal(rafts[1].(*RaftNode).logRaft.GetLastIndex())
+}
+
+//checking everyone's leaderid
+for i := 0; i < len(rafts); i++ {
+if ldr.(*RaftNode).Id() != int(rafts[i].(*RaftNode).LeaderId()) {
+t.Fatal("unpropagated value for leader id")
+}
+}
+//cleanup()
+}
+
+
 
 //This function checks for the get data function to get the data at a particular Index in the log
 
@@ -152,6 +224,7 @@ func TestGetData(t *testing.T) {
 		if err != nil {
 			fmt.Println(err)
 		}
+		//fmt.Println(string(dt1))
 		expect(t, string(dt1), "foo", "Test:4")
 	}
 }
@@ -168,10 +241,11 @@ func TestCommitIndex(t *testing.T) {
 		//Now Let's check if all the follower's have their commit Index to that of Leader's
 		for i:=0;i<4;i++{
 			l=ldr.(*RaftNode).sm.peers[i]
-			cindex=rafts[l].(*RaftNode).CommittedIndex()
-			expect(t, strconv.Itoa(k), strconv.Itoa(cindex), "Test:5")
+			cindex=rafts[l-1].(*RaftNode).CommittedIndex()
+			expect(t, strconv.Itoa(cindex), strconv.Itoa(k), "Test:5")
 		}
 	*/
+
 }
 
 //Testing for the Leader Id of all the nodes :Taking no partition case
