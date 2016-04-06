@@ -1,21 +1,18 @@
 package main
 
 import (
-	//"fmt"
-	logf "github.com/cs733-iitb/log"
 	"math"
-	"math/rand"
 	"strconv"
+	//"fmt"
 	"time"
 )
 
 var sm *StateMachine
-var num_resp int
 
 type log1 struct {
-	LogIndex int
-	LogTerm  int
-	Command  []byte
+	logIndex int
+	logTerm  int
+	command  []byte
 }
 
 type send struct {
@@ -30,7 +27,7 @@ type LogStore struct {
 
 //Timeout
 type TimeoutEv struct {
-	//time int
+	time int
 }
 
 //global variable
@@ -59,9 +56,7 @@ type StateMachine struct {
 	currentLeader    int
 	appendresCount   int
 	appendIdresponse [6]int
-	log              *logf.Log
-	HeartBeatTimeout int
-	ElectionTimeout  int
+	log              [200]log1
 }
 
 //AppendEntries Request
@@ -84,9 +79,6 @@ type AppendEntriesRespEv struct {
 //var sm *StateMachine
 
 //var ret =make([]interface{},1)
-func StateChange(interface{}) {
-
-}
 
 func (a *AppendEntriesReqEv) AppendReqHandlerF() []interface{} {
 
@@ -100,39 +92,69 @@ func (a *AppendEntriesReqEv) AppendReqHandlerF() []interface{} {
 
 	} else {
 		sm.currentLeader = a.LeaderId
-
 		if len(a.Entries) == 0 {
-			ret = append(ret, Alarm{sm.ElectionTimeout})
+			ret = append(ret, Alarm{150})
 			sm.currentTerm = a.Term
 			sm.votedFor = 0
 			if a.LeaderCommit > sm.commitIndex {
+				ret = append(ret, Commit{index: a.LeaderCommit, data: sm.log[a.LeaderCommit].command})
 				sm.commitIndex = a.LeaderCommit
-				k, _ := sm.log.Get(int64(a.LeaderCommit))
-				ret = append(ret, Commit{index: a.LeaderCommit, data: k.(log1).Command})
-				
 			}
-
+			
 		} else {
-			m, _ := sm.log.Get(int64(a.PrevLogIndex))
-
-			sm.lastLogIndex = m.(log1).LogIndex
-			sm.lastLogTerm = m.(log1).LogTerm
 
 			if sm.lastLogIndex == a.PrevLogIndex && sm.lastLogTerm == a.PrevLogTerm {
+				// Delete all the log entries following sm.prevLogIndex
+
+				if len(sm.log[sm.lastLogIndex+1].command) != 0 {
+
+					for i := sm.lastLogIndex + 1; sm.log[i].logTerm != 0 && i < 100; i++ {
+						//fmt.Println("check2")
+						sm.log[i].logTerm = 0
+					}
+				}
 
 				sm.lastLogIndex++
 
 				sm.currentTerm = a.Term
 				sm.votedFor = 0
 
+				/*  m:=sm.lastLogIndex
+
+				    //Generate output action : LogStore(index, entries[])
+				          //log[m].logIndex=sm.lastLogIndex
+				         log[m].logIndex=m
+				          log[m].logTerm=a.term
+
+				          log[m].command=a.entries
+				*/
 				ret = append(ret, LogStore{sm.lastLogIndex, a.Entries})
 
 				if a.LeaderCommit > sm.commitIndex {
 
 					sm.commitIndex = int(math.Min(float64(a.LeaderCommit), float64(sm.lastLogIndex)))
 				}
-				ret = append(ret, LogStore{sm.lastLogIndex, a.Entries})
+
 				ret = append(ret, send{a.LeaderId, replytrue})
+
+				//fmt.Println("check1")
+			} else if len(sm.log[a.PrevLogIndex].command) == 0 {
+
+				if a.PrevLogIndex == -1 {
+					// Generate the output action
+					for i := 0; sm.log[i].logTerm != 0 && i < 100; i++ {
+						sm.log[i].logTerm = 0
+						//log[i].command={}
+
+					}
+
+					ret = append(ret, LogStore{0, a.Entries})
+					sm.lastLogIndex = 0
+					ret = append(ret, send{a.LeaderId, replytrue})
+
+				} else {
+					ret = append(ret, send{a.LeaderId, replyfalse})
+				}
 
 			} else if (sm.lastLogIndex == a.PrevLogIndex) && (sm.lastLogTerm != a.PrevLogTerm) {
 				//Delete the existing entry and those that follows trying to make its log equivalent to that of leader
@@ -141,11 +163,13 @@ func (a *AppendEntriesReqEv) AppendReqHandlerF() []interface{} {
 
 		}
 
-	}
+	}	
+	
+	time.Sleep(1 * time.Second)
 
 	//fmt.Println(ret)
 	return ret
-
+	
 }
 
 func (ae *AppendEntriesReqEv) AppendReqHandlerC() []interface{} {
@@ -161,7 +185,6 @@ func (ae *AppendEntriesReqEv) AppendReqHandlerC() []interface{} {
 		sm.status = "follower"
 		sm.currentTerm = ae.Term
 		sm.votedFor = 0
-		can = append(can, Alarm{sm.ElectionTimeout})
 
 		if len(ae.Entries) == 0 {
 
@@ -172,6 +195,7 @@ func (ae *AppendEntriesReqEv) AppendReqHandlerC() []interface{} {
 			can = append(can, send{ae.LeaderId, AppendEntriesRespEv{sm.id, sm.currentTerm, false}})
 
 		}
+
 	}
 
 	return can
@@ -186,8 +210,6 @@ func (a *AppendEntriesReqEv) AppendReqHandlerL() []interface{} {
 		sm.currentTerm = a.Term
 		sm.status = "follower"
 		sm.votedFor = 0
-		lead = append(lead, Alarm{sm.HeartBeatTimeout})
-		return lead
 	}
 	return (make([]interface{}, 0))
 
@@ -210,7 +232,6 @@ func (ar *AppendEntriesRespEv) AppendEntriesresC() []interface{} {
 		sm.currentTerm = ar.Term
 		sm.status = "follower"
 		sm.votedFor = 0
-		ret7 = append(ret7, Alarm{sm.ElectionTimeout})
 	}
 	ret7 = append(ret7, "ERROR_OCCURED")
 	return (ret7)
@@ -218,75 +239,55 @@ func (ar *AppendEntriesRespEv) AppendEntriesresC() []interface{} {
 }
 
 func (ar *AppendEntriesRespEv) AppendEntriesresL() []interface{} {
-	//fmt.Println(ar)
+	// fmt.Println(ar.Id)
 	var aresp = make([]interface{}, 0)
 	if ar.Success == true {
 		sm.appendIdresponse[ar.Id] = 1
 		sm.appendresCount++
 
-		sm.matchIndex[ar.Id]++
-        
-		g := sm.nextIndex[ar.Id]
-		
-
+		x := sm.nextIndex[ar.Id]
+		q := sm.log[x].command
 		sm.nextIndex[ar.Id]++
 
-		count = 0
-
 		for i := 0; i < 6; i++ {
-			if g <= sm.matchIndex[i] {
+			if x <= sm.matchIndex[i] {
 				count++
 			}
 		}
 
-		if num_resp == 0 {
-			count = 0
-		}
+		if count >= 3 {
+			aresp = append(aresp, Commit{index: x, data: q})
 
-		if count >= 3 && num_resp != 0 {
-			num_resp = 0
-			s, _ := sm.log.Get(int64(g))
-			q := s.(log1).Command
-			aresp = append(aresp, Commit{index: g, data: q})
-
-			if sm.commitIndex < g {
-				sm.commitIndex = g
+			if sm.commitIndex < x {
+				sm.commitIndex = x
 			}
-
+			sm.matchIndex[ar.Id]++
 			count = 0
-		}
-
-	} else if ar.Success == false {
-		//fmt.Println(ar)
-		var prevx int
-		if ar.Term > sm.currentTerm {
-			sm.votedFor = 0
-			sm.currentTerm = ar.Term
-			sm.status = "follower"
-			aresp = append(aresp, Alarm{sm.ElectionTimeout})
-
 		} else {
-			if sm.nextIndex[ar.Id] > 0 {
-				sm.nextIndex[ar.Id]--
-			}
-			x := sm.nextIndex[ar.Id]
 
-			if prevx > 0 {
-				prevx = x - 1
-			}
-			k, _ := sm.log.Get(int64(prevx))
-			t, _ := sm.log.Get(int64(x))
-			aresp = append(aresp, send{ar.Id, AppendEntriesReqEv{Term: sm.currentTerm, PrevLogIndex: prevx, PrevLogTerm: k.(log1).LogTerm, Entries: t.(log1).Command, LeaderCommit: sm.commitIndex}})
+			return (make([]interface{}, 0))
 		}
+	} else if ar.Success == false {
+		var prevx int
+		sm.nextIndex[ar.Id]--
+		x := sm.nextIndex[ar.Id]
+		//fmt.Println(x)
+		if prevx > 0 {
+			prevx = x - 1
+		}
+		aresp = append(aresp, send{ar.Id, AppendEntriesReqEv{Term: sm.currentTerm, PrevLogIndex: prevx, PrevLogTerm: sm.log[prevx].logTerm, Entries: sm.log[x].command, LeaderCommit: sm.commitIndex}})
+
 	}
-	//fmt.Println(ar)
+	time.Sleep(2 * time.Second)
 	return aresp
 }
+
 
 //AppendEv
 type AppendEv struct {
 	data1 []byte
 }
+
 
 type Commit struct {
 	index int
@@ -317,96 +318,61 @@ func (ar *AppendEv) AppendC() []interface{} {
 }
 
 func (ar *AppendEv) AppendL() []interface{} {
-	//fmt.Println(sm.nextIndex)
-	var l int
-	num_resp = 4
+
 	var apc = make([]interface{}, 0)
 	sm.lastLogIndex++
 	sm.prevLogIndex++
-	//u,_:=sm.log.Get(int64(sm.prevLogIndex))
-	//sm.prevLogTerm = u.(log1).logTerm
+
+	sm.prevLogTerm = sm.log[sm.prevLogIndex].logTerm
 
 	sm.matchIndex[sm.id]++
 
 	sm.appendIdresponse[sm.id] = 1
-	//fmt.Println(sm.prevLogIndex)
-	//fmt.Println(sm.lastLogIndex)
 
 	apc = append(apc, LogStore{sm.lastLogIndex, ar.data1})
 
 	for i := 0; i < len(sm.peers); i++ {
-		//fmt.Println(sm.nextIndex)
-		//fmt.Println(sm.lastLogIndex)
-		for l = sm.nextIndex[sm.peers[i]]; l < sm.lastLogIndex; l++ {
-			//fmt.Println("Check",0,l,sm.peers[i])
-			o, _ := sm.log.Get(int64(l))
-			k := l
-			if k > 0 {
-				k = k - 1
-			}
-			h, _ := sm.log.Get(int64(k))
 
-			apc = append(apc, send{sm.peers[i], AppendEntriesReqEv{Term: sm.currentTerm, LeaderId: sm.id, PrevLogIndex: h.(log1).LogIndex, Entries: o.(log1).Command, PrevLogTerm: h.(log1).LogTerm, LeaderCommit: sm.commitIndex}})
-			//fmt.Println(apc)
-
-		}
-
-		e, _ := sm.log.Get(int64(l - 1))
-		apc = append(apc, send{sm.peers[i], AppendEntriesReqEv{Term: sm.currentTerm, LeaderId: sm.id, PrevLogIndex: e.(log1).LogIndex, Entries: ar.data1, PrevLogTerm: e.(log1).LogTerm, LeaderCommit: sm.commitIndex}})
-
-	}
-
-	for i := 0; i < len(sm.peers); i++ {
 		sm.nextIndex[sm.peers[i]] = sm.lastLogIndex
+		apc = append(apc, send{sm.peers[i], AppendEntriesReqEv{Term: sm.currentTerm, LeaderId: sm.id, PrevLogIndex: sm.prevLogIndex, Entries: ar.data1, PrevLogTerm: sm.prevLogTerm, LeaderCommit: sm.commitIndex}})
+
 	}
 
-	//fmt.Println(apc)
 	return apc
 
 }
 
 func (t *TimeoutEv) timeoutHandlerF() []interface{} {
-	//fmt.Println("Inside Follower Timeout",sm.id)
+	//fmt.Println("hello timeout")
 	sm.currentTerm++
 	sm.status = "candidate"
 	sm.voteReceived[sm.id] = 1
 	sm.voteCount++
-	sm.votedFor = sm.id
+	sm.votedFor = 0
 	var ret3 = make([]interface{}, 0)
-	ret3 = append(ret3, Alarm{sm.ElectionTimeout})
 	//fmt.Println(sm.currentTerm)
 	for i := 0; i < len(sm.peers); i++ {
-		//fmt.Println(i,sm.peers[i])
 		ret3 = append(ret3, send{sm.peers[i], VoteRequestEv{Term: sm.currentTerm, LastLogIndex: sm.lastLogIndex, LastLogTerm: sm.lastLogTerm, CandidateId: sm.id}})
 	}
 	//fmt.Println(ret3)
-	//ret3 = append(ret3, Alarm{t.time})
+	ret3 = append(ret3, Alarm{t.time})
 
 	return (ret3)
 
 }
 
-func random(min, max int) int {
-	//fmt.Println("Hey")
-	rand.Seed(time.Now().Unix())
-	k := max - min
-	return rand.Intn(k) + min
-}
-
 func (t *TimeoutEv) timeoutHandlerC() []interface{} {
-	//fmt.Println("Inside Candidate Timeout",sm.id)
 	sm.currentTerm++
 	sm.votedFor = 0
-	sm.status = "follower"
-	empty := [6]int{0, 0, 0, 0, 0, 0}
+	sm.status = "candidate"
+	empty := [6]int{0, 0, 1, 0, 0, 0}
 	sm.voteReceived = empty
 	sm.voteCount = 1
 	var tout = make([]interface{}, 0)
-	tout = append(tout, Alarm{random(sm.ElectionTimeout, 2*sm.ElectionTimeout)})
 	for i := 0; i < len(sm.peers); i++ {
 		tout = append(tout, send{sm.peers[i], VoteRequestEv{sm.currentTerm, sm.lastLogIndex, sm.lastLogTerm, sm.id}})
 	}
-	//tout = append(tout, Alarm{t.time})
+	tout = append(tout, Alarm{t.time})
 	return (tout)
 
 }
@@ -431,7 +397,7 @@ type VoteRequestEv struct {
 }
 
 func (rv *VoteRequestEv) VoterequestF() []interface{} {
-	//fmt.Println("Inside VoteReqFollower",sm.id)
+
 	var ret4 = make([]interface{}, 0)
 	if rv.Term < sm.currentTerm {
 		ret4 = append(ret4, send{rv.CandidateId, VoteRespEv{sm.id, sm.currentTerm, false}})
@@ -439,7 +405,6 @@ func (rv *VoteRequestEv) VoterequestF() []interface{} {
 		sm.currentTerm = rv.Term
 		sm.votedFor = rv.CandidateId
 		ret4 = append(ret4, send{rv.CandidateId, VoteRespEv{sm.id, sm.currentTerm, true}})
-		ret4 = append(ret4, Alarm{sm.ElectionTimeout})
 
 	} else {
 		if rv.Term > sm.currentTerm {
@@ -459,11 +424,11 @@ func (rv *VoteRequestEv) VoterequestC() []interface{} {
 
 		ret5 = append(ret5, send{rv.CandidateId, VoteRespEv{sm.id, sm.currentTerm, false}})
 
-		/*	} else if rv.Term >= sm.currentTerm && (sm.votedFor == 0 || sm.votedFor == rv.CandidateId) && rv.LastLogIndex >= sm.lastLogIndex {
-			sm.currentTerm = rv.Term
-			sm.votedFor = rv.CandidateId
-			ret5 = append(ret5, send{rv.CandidateId, VoteRespEv{sm.id, sm.currentTerm, true}})
-		*/
+	} else if rv.Term >= sm.currentTerm && (sm.votedFor == 0 || sm.votedFor == rv.CandidateId) && rv.LastLogIndex >= sm.lastLogIndex {
+		sm.currentTerm = rv.Term
+		sm.votedFor = rv.CandidateId
+		ret5 = append(ret5, send{rv.CandidateId, VoteRespEv{sm.id, sm.currentTerm, true}})
+
 	} else {
 		if rv.Term > sm.currentTerm {
 			sm.currentTerm = rv.Term
@@ -482,10 +447,9 @@ func (rv *VoteRequestEv) VoterequestL() []interface{} {
 		sm.currentTerm = rv.Term
 		sm.status = "follower"
 		sm.votedFor = 0
-		empty1 := [6]int{0, 0, 0, 0, 0, 0}
+		empty1 := [6]int{0, 0, 1, 0, 0, 0}
 		sm.appendIdresponse = empty1
 		sm.appendresCount = 0
-		ret5 = append(ret5, Alarm{sm.ElectionTimeout})
 	}
 	ret5 = append(ret5, "VOTE RESPONSE TOO LATE")
 	return ret5
@@ -513,12 +477,10 @@ func (rvr *VoteRespEv) VoteResponseHandlerF() []interface{} {
 func (rvr *VoteRespEv) VoteResponseHandlerC() []interface{} {
 	var vrhc = make([]interface{}, 0)
 	if rvr.VoteGranted == true {
-		//fmt.Println("voteResponseTrue",sm.id)
 		sm.voteReceived[rvr.Id] = 1
 		sm.voteCount++
-		if sm.voteCount >= 3 {
+		if sm.voteCount == 3 {
 			sm.status = "leader"
-			vrhc = append(vrhc, Alarm{sm.HeartBeatTimeout})
 			sm.currentLeader = sm.id
 			for i := 0; i < len(sm.peers); i++ {
 				vrhc = append(vrhc, send{sm.peers[i], AppendEntriesReqEv{Term: sm.currentTerm, LeaderId: sm.id, PrevLogIndex: sm.lastLogIndex, PrevLogTerm: sm.lastLogTerm, Entries: []byte{}}})
@@ -528,13 +490,11 @@ func (rvr *VoteRespEv) VoteResponseHandlerC() []interface{} {
 
 	}
 	if rvr.VoteGranted == false {
-		//fmt.Println("voteResponseFalse",sm.id)
 		sm.voteReceived[rvr.Id] = 0
 		sm.votenegCount++
-		if sm.votenegCount >= 3 {
+		if sm.votenegCount == 3 {
 			sm.status = "follower"
 			sm.votedFor = 0
-			vrhc = append(vrhc, Alarm{sm.ElectionTimeout})
 		}
 		if sm.currentTerm < rvr.Term {
 			sm.currentTerm = rvr.Term
@@ -546,18 +506,15 @@ func (rvr *VoteRespEv) VoteResponseHandlerC() []interface{} {
 }
 
 func (rvr *VoteRespEv) VoteResponseHandlerL() []interface{} {
-
-	var ret5 = make([]interface{}, 0)
 	if rvr.Term > sm.currentTerm {
 		sm.currentTerm = rvr.Term
 		sm.status = "follower"
 		sm.votedFor = 0
-		ret5 = append(ret5, Alarm{sm.ElectionTimeout})
-		empty2 := [6]int{0, 0, 0, 0, 0, 0}
+		empty2 := [6]int{0, 0, 1, 0, 0, 0}
 		sm.appendIdresponse = empty2
 		sm.appendresCount = 0
 	}
-
+	var ret5 = make([]interface{}, 0)
 	ret5 = append(ret5, "Error")
 	return ret5
 
@@ -585,7 +542,6 @@ func (sm1 *StateMachine) ProcessEvent(ev interface{}) []interface{} {
 		} else if sm1.status == "candidate" {
 			return (cmd.AppendEntriesresC())
 		} else if sm1.status == "leader" {
-			//fmt.Println("hello",sm)
 			return (cmd.AppendEntriesresL())
 		}
 
@@ -637,7 +593,7 @@ func (sm1 *StateMachine) ProcessEvent(ev interface{}) []interface{} {
 		// other cases
 
 	}
-	/*go func() []interface{} {
+	go func() []interface{} {
 
 		var hbmsg = make([]interface{}, 0)
 
@@ -649,6 +605,6 @@ func (sm1 *StateMachine) ProcessEvent(ev interface{}) []interface{} {
 		}
 		return hbmsg
 
-	}()*/
+	}()
 	return (make([]interface{}, 1))
 }
