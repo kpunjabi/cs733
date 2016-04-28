@@ -1,0 +1,173 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"github.com/Kuldeep/cs733/assignment4/Assignment1Combined/fs"
+	"net"
+	"os"
+	"strconv"
+	"encoding/json"
+)
+
+var myid int
+var pt = 8080
+
+
+var crlf = []byte{'\r', '\n'}
+
+func check1(obj interface{}) {
+	if obj != nil {
+		fmt.Println(obj)
+		os.Exit(1)
+	}
+}
+
+type message struct{
+	cid int64
+	msg *fs.Msg
+}
+
+
+func reply(conn *net.TCPConn, msg *fs.Msg) bool {
+	var err error
+	write := func(data []byte) {
+		if err != nil {
+			return
+		}
+		_, err = conn.Write(data)
+	}
+	var resp string
+	switch msg.Kind {
+	case 'C': // read response
+		resp = fmt.Sprintf("CONTENTS %d %d %d", msg.Version, msg.Numbytes, msg.Exptime)
+	case 'O':
+		resp = "OK "
+		if msg.Version > 0 {
+			resp += strconv.Itoa(msg.Version)
+		}
+	case 'F':
+		resp = "ERR_FILE_NOT_FOUND"
+	case 'V':
+		resp = "ERR_VERSION " + strconv.Itoa(msg.Version)
+	case 'M':
+		resp = "ERR_CMD_ERR"
+	case 'I':
+		resp = "ERR_INTERNAL"
+	case 'N':
+		resp = "ERR_REDIRECT"
+	default:
+		fmt.Printf("Unknown response kind '%c'", msg.Kind)
+		return false
+	}
+	resp += "\r\n"
+	write([]byte(resp))
+	if msg.Kind == 'C' {
+		write(msg.Contents)
+		write(crlf)
+	}
+	return err == nil
+}
+
+func serve(conn *net.TCPConn, c int64, clientch chan *fs.Msg, rn Node ) {
+	var s message
+	fmt.Println("hello Serve")
+	reader := bufio.NewReader(conn)
+	for {
+		msg1, msgerr, fatalerr := fs.GetMsg(reader)
+		if fatalerr != nil || msgerr != nil {
+			reply(conn, &fs.Msg{Kind: 'M'})
+			conn.Close()
+			break
+		}
+
+		if msgerr != nil {
+			if (!reply(conn, &fs.Msg{Kind: 'M'})) {
+				conn.Close()
+				break
+			}
+		}
+		s.cid=c
+		s.msg=msg1
+		k,err := json.Marshal(s)
+		if err!=nil {
+			fmt.Println(err)
+		}
+		fmt.Println("Before Append")
+		rn.(*RaftNode).Append(k)
+	    fmt.Println("After Append")
+		resp := <-clientch
+		
+		if !reply(conn, resp) {
+			conn.Close()
+			break
+		}
+	}
+}
+
+
+func runfsMap(node Node, fs1 *fs.FS){
+	fmt.Println(node.(*RaftNode))
+	//for{
+			fmt.Println("before channel")
+			ci := <-node.CommitChannel()
+			
+			var respMsg message
+			fmt.Println(ci)
+			if err :=json.Unmarshal(ci.Data, &respMsg); err != nil {
+	        			panic(err)
+	    			}
+	    	fmt.Println("Check:0")	
+	    	fmt.Println("Hellooooo")
+	    	fmt.Println(respMsg)	
+	    	response:=fs1.ProcessMsg(respMsg.msg)
+	    	fmt.Println("Check:0")
+	    	Clientchan := fs1.FSmap[respMsg.cid]
+	    	Clientchan <- response
+	    	fmt.Println("Check:0")
+		//}
+
+}
+
+
+func serverMain(rn Node, fsport int) {
+	var cid int64
+	fmt.Println(fsport)
+	cid=0
+	tcpaddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("localhost:%d",fsport))
+	check1(err)
+	
+	tcp_acceptor, err := net.ListenTCP("tcp", tcpaddr)
+
+	check1(err)
+	var fs1 = &fs.FS{Dir: make(map[string]*fs.FileInfo, 1000)}
+	fs1.FSmap=make(map[int64](chan *fs.Msg),100)
+	go runfsMap(rn, fs1)
+	fmt.Println("Check:0")
+
+	for {
+		fmt.Println("Just Inside For")
+		tcp_conn, err := tcp_acceptor.AcceptTCP()
+		fmt.Println("Inside For         ",tcp_conn)
+		check1(err)
+		cid=cid+1
+		fmt.Println("Inside For")
+		clientCh := make(chan *fs.Msg,1)
+		fs1.FSmap[cid]=clientCh
+		fmt.Println(fs1.FSmap[cid])
+		go serve(tcp_conn, cid, clientCh, rn )
+	}
+}
+
+
+
+func main() {
+	
+	myid = myid+1
+	var rn Node
+	rn, _ = New(myid, "config1.json")
+	fmt.Println(rn.(*RaftNode))
+	pt=pt+10
+	serverMain(rn, pt)
+
+}

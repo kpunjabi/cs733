@@ -1,12 +1,12 @@
-=============== Apr 6, 2016 (IST) ===============
-23:32:26.074405 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
-23:32:26.074587 db@open opening
-23:32:26.075411 version@stat F·[] S·0B[] Sc·[]
-23:32:26.107859 db@janitor F·2 G·0
-23:32:26.107992 db@open done T·33.362044ms
-23:32:26.141589 transaction@flush created L0@2 N·2 S·269B "0,v1":"las..dex,v2"
-23:32:26.141669 version@stat F·[1] S·269B[269B] Sc·[0.25]
-23:32:31.520668 transaction@flush created L0@3 N·2 S·272B "1,v3":"las..dex,v4"
-23:32:31.520720 version@stat F·[2] S·541B[541B] Sc·[0.50]
-23:32:31.691348 transaction@flush created L0@4 N·2 S·275B "2,v5":"las..dex,v6"
-23:32:31.691424 version@stat F·[3] S·816B[816B] Sc·[0.75]
+=============== Apr 16, 2016 (IST) ===============
+20:27:50.756782 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+20:27:50.756949 db@open opening
+20:27:50.760143 version@stat F·[] S·0B[] Sc·[]
+20:27:50.792430 db@janitor F·2 G·0
+20:27:50.792461 db@open done T·35.501786ms
+20:27:50.837279 transaction@flush created L0@2 N·2 S·269B "0,v1":"las..dex,v2"
+20:27:50.837351 version@stat F·[1] S·269B[269B] Sc·[0.25]
+20:27:56.332510 transaction@flush created L0@3 N·2 S·274B "1,v3":"las..dex,v4"
+20:27:56.332589 version@stat F·[2] S·543B[543B] Sc·[0.50]
+20:27:56.452592 transaction@flush created L0@4 N·2 S·277B "2,v5":"las..dex,v6"
+20:27:56.452641 version@stat F·[3] S·820B[820B] Sc·[0.75]

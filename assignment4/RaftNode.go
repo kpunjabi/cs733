@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	//"reflect"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -128,7 +127,9 @@ func (rn *RaftNode) doActions(actions []interface{}) {
 		
 		case Commit:
 			gob.Register(AppendEntriesReqEv{})
-			rn.commitCh <- CommitInfo{Data: actions[i].(Commit).data, Err: nil, Index: actions[i].(Commit).index}
+			cmt:=actions[i].(Commit)
+			fmt.Println(cmt)
+			rn.commitCh <- CommitInfo{cmt.data,cmt.index,cmt.err}
 			
 
 		case LogStore:
