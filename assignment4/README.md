@@ -28,7 +28,7 @@ Testing of Code:
 which is the basic format for all the message transfers that takesplace
 In this I have started five servers using os.StartProcess and then run all the testcases and finally to cleanup I have killed these.
 
->>  To run this code just run go test in the folder Assignment4(Final) inside assignment4
+>>  First you need to perform go install in the folder Assignmnet1Combined then To run this code just run go test in the folder Assignment1Combined inside assignment4
 
 
 
